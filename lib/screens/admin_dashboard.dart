@@ -1,28 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:car_wash_app/services/notification_service.dart';
 
 import 'login_screen.dart';
 import 'shared/app_ui.dart';
-
-// ✅ Your new pages
 import 'admin_crud.dart';
 import 'admin_view_booking.dart';
-
-// ✅ ADD THIS
 import 'admin_booking_trends.dart';
 
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
 
-  /// Logout and return to LoginScreen
+  // Logout and return to LoginScreen
   void _logout(BuildContext context) {
-    // Uses your universal navigation helper from app_ui.dart
+  // Uses your universal navigation helper from app_ui.dart
     context.pushReplaceAll(const LoginScreen());
   }
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Fix overflow: make tiles a bit taller on smaller screens
+    //make tiles a bit taller on smaller screens
     final double tileRatio = context.isMdUp ? context.tileAspectRatio : 1.15;
 
     return Scaffold(
@@ -48,10 +43,10 @@ class AdminDashboard extends StatelessWidget {
                   crossAxisCount: context.gridCount(xs: 2, md: 3, lg: 4),
                   crossAxisSpacing: 14,
                   mainAxisSpacing: 14,
-                  childAspectRatio: tileRatio, // ✅ changed only here
+                  childAspectRatio: tileRatio, // changed only here
                 ),
                 children: [
-                  /// ✅ Manage packages (CRUD)
+                  /// Manage packages (CRUD)
                   AppActionTile(
                     icon: Icons.local_car_wash_rounded,
                     title: "Manage Packages",
@@ -59,7 +54,7 @@ class AdminDashboard extends StatelessWidget {
                     onTap: () => context.push(const AdminCrudScreen()),
                   ),
 
-                  /// ✅ View bookings
+                  /// View bookings
                   AppActionTile(
                     icon: Icons.book_online_rounded,
                     title: "View Bookings",
@@ -67,7 +62,7 @@ class AdminDashboard extends StatelessWidget {
                     onTap: () => context.push(const AdminViewBookingScreen()),
                   ),
 
-                  /// ✅ NEW TILE: Booking Trends
+                  /// NEW TILE: Booking Trends
                   AppActionTile(
                     icon: Icons.insights_rounded,
                     title: "Booking Trends",

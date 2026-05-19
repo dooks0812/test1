@@ -47,9 +47,9 @@ class _UserDashboardState extends State<UserDashboard> {
         currentIndex: _selectedIndex,
         onTap: _setTab,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.white,
+        selectedItemColor: AppColors.brandA,
+        unselectedItemColor: AppColors.textMuted,
+        backgroundColor: AppColors.surface,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_rounded),
@@ -87,7 +87,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
   bool _dialogShowing = false;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _notifSub;
-  bool _indexWarningShown = false;
+  bool _notifErrorShown = false;
 
   @override
   void initState() {
@@ -110,8 +110,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
         .doc(user.uid)
         .collection("notifications")
         .where("isRead", isEqualTo: false)
-        .orderBy("createdAt", descending: true)
-        .limit(1)
+        .limit(20)
         .snapshots();
 
     _notifSub = stream.listen(
@@ -120,7 +119,13 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
         if (snap.docs.isEmpty) return;
         if (_dialogShowing) return;
 
-        final doc = snap.docs.first;
+        final docs = [...snap.docs]..sort(
+            (a, b) => _createdAtForSort(b.data()).compareTo(
+              _createdAtForSort(a.data()),
+            ),
+          );
+
+        final doc = docs.first;
         final data = doc.data();
 
         final title = (data["title"] ?? "Notification").toString();
@@ -168,33 +173,39 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
         });
       },
       onError: (err) {
-        // ✅ Prevent crash when Firestore requires an index.
-        // This keeps your dashboard working even before you create the index.
         if (!mounted) return;
 
-        if (err is FirebaseException && err.code == "failed-precondition") {
-          if (!_indexWarningShown) {
-            _indexWarningShown = true;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  "Notifications need a Firestore index. Open the link shown in your console logs and create the index.",
-                ),
-              ),
-            );
-          }
-          return;
-        }
-
-        // For any other error, show once and continue
-        if (!_indexWarningShown) {
-          _indexWarningShown = true;
+        if (!_notifErrorShown) {
+          _notifErrorShown = true;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Notifications error: $err")),
           );
         }
       },
     );
+  }
+
+  DateTime _createdAtForSort(Map<String, dynamic> data) {
+    final value = data["createdAt"];
+    if (value is Timestamp) return value.toDate().toLocal();
+    if (value is DateTime) return value.toLocal();
+    if (value is num) {
+      final raw = value.toInt();
+      if (raw > 0) {
+        final ms = raw >= 1000000000000 ? raw : raw * 1000;
+        return DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
+      }
+    }
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed.toLocal();
+      final numeric = int.tryParse(value.trim());
+      if (numeric != null && numeric > 0) {
+        final ms = numeric >= 1000000000000 ? numeric : numeric * 1000;
+        return DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
+      }
+    }
+    return DateTime(1970);
   }
 
   void _logout() {
@@ -216,7 +227,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
         /// ✅ Soft overlay (readable)
         Positioned.fill(
           child: Container(
-            color: Colors.white.withOpacity(0.45),
+            color: Colors.white.withValues(alpha: 0.45),
           ),
         ),
 
@@ -236,7 +247,8 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const ProfileScreen()),
                       );
                     },
                   ),
@@ -248,7 +260,6 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                 ],
               ),
             ),
-
             Expanded(
               child: AppPage(
                 child: GridView(
@@ -275,7 +286,8 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                       icon: Icons.timeline_rounded,
                       title: "Live Progress",
                       subtitle: "Real-time wash updates",
-                      onTap: () => context.push(const LiveProgressSelectScreen()),
+                      onTap: () =>
+                          context.push(const LiveProgressSelectScreen()),
                     ),
                     AppActionTile(
                       icon: Icons.info_outline_rounded,
@@ -351,14 +363,14 @@ class _MapsTabState extends State<_MapsTab> {
               mapToolbarEnabled: true,
             ),
           ),
-
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: Card(
                 elevation: 2,
                 child: ListTile(
-                  leading: const Icon(Icons.place_rounded, color: Colors.blueAccent),
+                  leading:
+                      const Icon(Icons.place_rounded, color: AppColors.brandA),
                   title: const Text(
                     _label,
                     style: TextStyle(fontWeight: FontWeight.w800),
@@ -373,7 +385,6 @@ class _MapsTabState extends State<_MapsTab> {
               ),
             ),
           ),
-
           Align(
             alignment: Alignment.bottomCenter,
             child: SafeArea(

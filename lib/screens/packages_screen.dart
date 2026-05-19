@@ -36,8 +36,8 @@ class PackagesScreen extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withOpacity(0.50),
-                    Colors.white.withOpacity(0.50),
+                    Colors.white.withValues(alpha: 0.50),
+                    Colors.white.withValues(alpha: 0.50),
                   ],
                 ),
               ),

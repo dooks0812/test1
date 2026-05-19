@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'shared/app_ui.dart';
 
-// ✅ EmailJS service
+//EmailJS service
 import 'package:car_wash_app/services/emailjs_service.dart';
 
 class AdminViewBookingScreen extends StatelessWidget {
-  const AdminViewBookingScreen({super.key});
+  const AdminViewBookingScreen({super.key});//constructor
 
-  /// ✅ Update booking status + update matching payment status + send EmailJS email
+  // Keep these aligned with admin_booking_trends.dart / payment logic
+  static const String _promo6FlagId = "promo6";
+  static const String _promo6Title = "Special Offer on 6th Wash 🎁";
+  static const String _promo6Type = "promo6";
+  static const double _promo6DiscountPercent = 10;
+
+  /// Update booking status + update matching payment status + send EmailJS email
   Future<void> _updateBookingAndPaymentStatus({
     required BuildContext context,
     required String bookingId,
     required String bookingStatus, // "approved" / "cancelled"
+    required String userId,
     required String userEmail,
     required String dateText,
     required String timeSlot,
@@ -46,7 +54,17 @@ class AdminViewBookingScreen extends StatelessWidget {
         await batch.commit();
       }
 
-      // 3) ✅ Send EmailJS email
+      // 3) Auto-send one-time 6th wash promo once user becomes eligible
+      bool promoSentNow = false;
+      if (bookingStatus == "approved" && userId.trim().isNotEmpty) {
+        promoSentNow = await _autoSendSixthWashPromoIfEligible(
+          db: db,
+          userId: userId,
+          userEmail: userEmail,
+        );
+      }
+
+      // 3)Send EmailJS email
       final toName = userEmail.contains("@")
           ? userEmail.split("@").first
           : "Customer";
@@ -59,7 +77,7 @@ class AdminViewBookingScreen extends StatelessWidget {
           ? "Hello $toName,\n\nYour booking has been APPROVED.\n\nDate: $dateText\nTime: $timeSlot\nBooking ID: $bookingId\n\nThank you for choosing Smart Car Wash!"
           : "Hello $toName,\n\nYour booking has been CANCELLED.\n\nDate: $dateText\nTime: $timeSlot\nBooking ID: $bookingId\n\nIf this is a mistake, please book again from the app.";
 
-      // ✅ FIX: pass the computed name, not the email
+      //calls emailjs
       final (bool emailOk, String emailMsg) =
           await EmailJsService.sendStatusEmail(
         toEmail: userEmail,
@@ -78,6 +96,7 @@ class AdminViewBookingScreen extends StatelessWidget {
             content: Text(
               "Booking updated. "
               "${emailOk ? "Email sent ✅" : "Email failed ❌"}"
+              "${promoSentNow ? "\n6th-wash promo sent automatically ✅" : ""}"
               "${emailOk ? "" : "\nReason: $emailMsg"}",
             ),
           ),
@@ -96,6 +115,69 @@ class AdminViewBookingScreen extends StatelessWidget {
         );
       }
     }
+  }
+
+  Future<bool> _autoSendSixthWashPromoIfEligible({
+    required FirebaseFirestore db,
+    required String userId,
+    required String userEmail,
+  }) async {
+    final flagRef = db
+        .collection("users")
+        .doc(userId)
+        .collection("promo_flags")
+        .doc(_promo6FlagId);
+
+    final alreadySent = await flagRef.get();
+    if (alreadySent.exists) return false;
+
+    // Avoid extra index requirements by filtering status client-side.
+    final userPayments =
+        await db.collection("payments").where("userId", isEqualTo: userId).get();
+
+    final approvedCount = userPayments.docs.where((d) {
+      final data = d.data();
+      return (data["status"] ?? "").toString().toLowerCase() == "approved";
+    }).length;
+
+    // Eligible exactly before 6th rewarded wash (same logic as payment_screen).
+    if (approvedCount != 5) return false;
+
+    final notifRef =
+        db.collection("users").doc(userId).collection("notifications").doc();
+
+    bool created = false;
+
+    await db.runTransaction((tx) async {
+      final flagSnap = await tx.get(flagRef);
+      if (flagSnap.exists) return;
+
+      created = true;
+
+      tx.set(flagRef, {
+        "sentAt": FieldValue.serverTimestamp(),
+        "sentBy": "admin_auto",
+        "discountPercent": _promo6DiscountPercent,
+        "offerKind": "sixth_wash",
+      });
+
+      tx.set(notifRef, {
+        "type": _promo6Type,
+        "title": _promo6Title,
+        "message":
+            "Great news! You unlocked $_promo6DiscountPercent% off on your 6th wash. Tap to view packages.",
+        "ctaRoute": "packages",
+        "isRead": false,
+        "createdAt": FieldValue.serverTimestamp(),
+        "sentBy": "admin_auto",
+        "discountPercent": _promo6DiscountPercent,
+        "offerScope": "single_use",
+        "offerKind": "sixth_wash",
+        "userEmail": userEmail,
+      });
+    });
+
+    return created;
   }
 
   String _formatDate(dynamic ts) {
@@ -122,9 +204,9 @@ class AdminViewBookingScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.12),
+        color: c.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: c.withOpacity(0.35)),
+        border: Border.all(color: c.withValues(alpha: 0.35)),
       ),
       child: Text(
         status.toUpperCase(),
@@ -149,7 +231,8 @@ class AdminViewBookingScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text("All Bookings"),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: AppColors.brandA,
+        foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -183,6 +266,7 @@ class AdminViewBookingScreen extends StatelessWidget {
               final data = doc.data() as Map<String, dynamic>;
               final bookingId = doc.id;
 
+              final userId = (data["userId"] ?? "").toString().trim();
               final userEmail = (data["userEmail"] ?? "").toString().trim();
               final timeSlot = (data["timeSlot"] ?? "").toString();
               final status = (data["status"] ?? "pending").toString();
@@ -192,7 +276,7 @@ class AdminViewBookingScreen extends StatelessWidget {
               final pkgName = pkg?["name"]?.toString();
               final pkgPrice = pkg?["price"];
 
-              // ✅ IMPORTANT: Use discounted amount if present
+              // IMPORTANT: Use discounted amount if present
               // booking.paymentSummary.amount is the FINAL payable amount (after discount / offer)
               final pay = data["paymentSummary"] as Map<String, dynamic>?;
               final payableAmount = pay?["amount"];
@@ -236,7 +320,7 @@ class AdminViewBookingScreen extends StatelessWidget {
 
                       const SizedBox(height: 8),
 
-                      // ✅ Price display (prefers FINAL amount)
+                      //Price display (prefers FINAL amount)
                       if (payableAmount != null)
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,6 +378,7 @@ class AdminViewBookingScreen extends StatelessWidget {
                                         context: context,
                                         bookingId: bookingId,
                                         bookingStatus: "approved",
+                                        userId: userId,
                                         userEmail: userEmail,
                                         dateText: dateText,
                                         timeSlot: timeSlot,
@@ -310,6 +395,7 @@ class AdminViewBookingScreen extends StatelessWidget {
                                         context: context,
                                         bookingId: bookingId,
                                         bookingStatus: "cancelled",
+                                        userId: userId,
                                         userEmail: userEmail,
                                         dateText: dateText,
                                         timeSlot: timeSlot,

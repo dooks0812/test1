@@ -5,12 +5,13 @@ import 'package:flutter/material.dart';
 /// ===============================
 class AppColors {
   // Brand (change once, updates everywhere)
-  static const Color brandA = Color(0xFF2563EB); // blue
-  static const Color brandB = Color(0xFF06B6D4); // cyan
+  static const Color brandA = Color(0xFF0F2747); // navy blue
+  static const Color brandB = Color(0xFF1E3A6D); // deep blue
 
   // Surfaces
-  static const Color background = Color(0xFFF6F7FB);
-  static const Color surface = Colors.white;
+  static const Color background = Color(0xFFF3F6FC);
+  static const Color surface = Color(0xFFEAF1FF); // pale blue surface
+  static const Color tileSurface = Color(0xFFEAF1FF); // pale blue tiles
 
   // Text
   static const Color textStrong = Color(0xFF0F172A);
@@ -44,7 +45,7 @@ class AppShadows {
         BoxShadow(
           blurRadius: 18,
           offset: const Offset(0, 10),
-          color: Colors.black.withOpacity(strength),
+          color: Colors.black.withValues(alpha: strength),
         ),
       ];
 
@@ -52,7 +53,7 @@ class AppShadows {
         BoxShadow(
           blurRadius: 22,
           offset: const Offset(0, 12),
-          color: Colors.black.withOpacity(strength),
+          color: Colors.black.withValues(alpha: strength),
         ),
       ];
 }
@@ -171,7 +172,7 @@ class AppTheme {
       /// Inputs
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: const Color(0xFFF3F7FF),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
@@ -197,6 +198,13 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
+      ),
+
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        selectedItemColor: AppColors.brandA,
+        unselectedItemColor: AppColors.textMuted,
+        backgroundColor: AppColors.surface,
+        type: BottomNavigationBarType.fixed,
       ),
     );
   }
@@ -345,8 +353,8 @@ class AppGradientHeader extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(overlayOpacity),
-                        Colors.black.withOpacity(overlayOpacity * 0.35),
+                        Colors.black.withValues(alpha: overlayOpacity),
+                        Colors.black.withValues(alpha: overlayOpacity * 0.35),
                       ],
                     ),
                   ),
@@ -502,7 +510,7 @@ class _AppActionTileState extends State<AppActionTile> {
         onTap: widget.onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: AppColors.tileSurface,
             borderRadius: BorderRadius.circular(AppRadii.lg),
             border: Border.all(color: AppColors.borderSoft),
             boxShadow: shadow,

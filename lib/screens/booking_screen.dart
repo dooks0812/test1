@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-// ✅ Shared UI (header + spacing + theme)
 import 'shared/app_ui.dart';
-
 import 'car_details_screen.dart';
 
 class BookingScreen extends StatefulWidget {
@@ -12,6 +9,7 @@ class BookingScreen extends StatefulWidget {
   final double packagePrice;
   final String imageUrl;
 
+//constructor
   const BookingScreen({
     super.key,
     required this.packageName,
@@ -24,9 +22,9 @@ class BookingScreen extends StatefulWidget {
 }
 
 class _BookingScreenState extends State<BookingScreen> {
-  // ✅ Capacity rules
-  static const int MAX_PER_DATE = 18; // ✅ changed from 9 → 18
-  static const int MAX_PER_SLOT = 2; // ✅ stays 2
+  // Capacity rules
+  static const int maxPerDate = 18; //  18 cars per  day
+  static const int maxPerSlot = 2; // 2 cars per each hour
 
   DateTime? selectedDate;
   String? selectedTime;
@@ -51,6 +49,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+//converts dates into clean text
   String _dateKey(DateTime d) =>
       "${d.year.toString().padLeft(4, '0')}-"
       "${d.month.toString().padLeft(2, '0')}-"
@@ -59,10 +58,10 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
-    _preloadFullyBookedDates();
+    _preloadFullyBookedDates(); //checks which dates are already full
   }
 
-  /// ✅ Preload full dates for next 30 days (now full means >= 18 bookings)
+  /// Preload full dates for next 30 days (now full means >= 18 bookings)
   Future<void> _preloadFullyBookedDates() async {
     final now = _dateOnly(DateTime.now());
     final keys = List.generate(30, (i) => _dateKey(now.add(Duration(days: i))));
@@ -74,6 +73,7 @@ class _BookingScreenState extends State<BookingScreen> {
           .get();
 
       final Map<String, int> countsByDate = {};
+      //Loops through bookings and counts how many bookings exist for each date
       for (final doc in snap.docs) {
         final data = doc.data();
         final k = (data["dateKey"] ?? "").toString();
@@ -83,7 +83,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
       final full = <String>{};
       countsByDate.forEach((k, c) {
-        if (c >= MAX_PER_DATE) full.add(k);
+        if (c >= maxPerDate) full.add(k);
       });
 
       if (!mounted) return;
@@ -93,11 +93,11 @@ class _BookingScreenState extends State<BookingScreen> {
           ..addAll(full);
       });
     } catch (_) {
-      // ignore (date picker still works, just without grey dates)
+     
     }
   }
 
-  /// ✅ Load total + per-slot counts for selected date
+  /// Load total + per-slot counts for selected date
   Future<void> _loadCountsForDate(DateTime date) async {
     final key = _dateKey(date);
 
@@ -108,6 +108,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
     final total = snap.size;
 
+//Counts how many bookings exist per time slot
     final Map<String, int> slotCounts = {};
     for (final doc in snap.docs) {
       final data = doc.data();
@@ -118,17 +119,18 @@ class _BookingScreenState extends State<BookingScreen> {
 
     if (!mounted) return;
     setState(() {
+      //update with lastest time
       _totalBookingsForSelectedDate = total;
       _slotCountsForSelectedDate = slotCounts;
 
       // If the chosen time became full, clear it
       if (selectedTime != null &&
-          (_slotCountsForSelectedDate[selectedTime!] ?? 0) >= MAX_PER_SLOT) {
+          (_slotCountsForSelectedDate[selectedTime!] ?? 0) >= maxPerSlot) {
         selectedTime = null;
       }
 
       // If the date became full, mark it
-      if (_totalBookingsForSelectedDate >= MAX_PER_DATE) {
+      if (_totalBookingsForSelectedDate >= maxPerDate) {
         _fullyBookedDateKeys.add(key);
       }
     });
@@ -144,7 +146,7 @@ class _BookingScreenState extends State<BookingScreen> {
       lastDate: now.add(const Duration(days: 30)),
       selectableDayPredicate: (day) {
         final key = _dateKey(_dateOnly(day));
-        return !_fullyBookedDateKeys.contains(key);
+        return !_fullyBookedDateKeys.contains(key); //If a date is in _fullyBookedDateKeys, it cannot be selected
       },
     );
 
@@ -182,7 +184,7 @@ class _BookingScreenState extends State<BookingScreen> {
       final key = _dateKey(bookingDate);
       final slot = selectedTime!;
 
-      // ✅ Re-check counts (avoid race condition)
+      // Re-check counts (avoid race condition)
       final snap = await FirebaseFirestore.instance
           .collection("bookings")
           .where("dateKey", isEqualTo: key)
@@ -191,25 +193,28 @@ class _BookingScreenState extends State<BookingScreen> {
       final total = snap.size;
 
       int slotCount = 0;
-      for (final doc in snap.docs) {
+      for (final doc in snap.docs) {//Counts how many bookings already exist for the selected time slot.
         final data = doc.data();
         if ((data["timeSlot"] ?? "").toString() == slot) slotCount++;
       }
 
-      if (total >= MAX_PER_DATE) {
+      if (!mounted) return; 
+      //18 = full
+      if (total >= maxPerDate) {
         setState(() => _fullyBookedDateKeys.add(key));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "Please select another date — maximum $MAX_PER_DATE bookings reached.",
+              "Please select another date — maximum $maxPerDate bookings reached.",
             ),
           ),
         );
         return;
       }
 
-      if (slotCount >= MAX_PER_SLOT) {
+      if (slotCount >= maxPerSlot) { //2 = full
         await _loadCountsForDate(bookingDate);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -220,7 +225,7 @@ class _BookingScreenState extends State<BookingScreen> {
         return;
       }
 
-      // ✅ Save booking
+      // Save booking to firebase
       final bookingRef =
           await FirebaseFirestore.instance.collection("bookings").add({
         "userId": user.uid,
@@ -276,7 +281,7 @@ class _BookingScreenState extends State<BookingScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          /// ✅ Background image (bg.jpg)
+          /// Background image (bg.jpg)
           Positioned.fill(
             child: Image.asset(
               "assets/images/bg.jpg",
@@ -286,14 +291,14 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
           ),
 
-          /// ✅ Overlay
+          /// Overlay
           Positioned.fill(
-            child: Container(color: Colors.white.withOpacity(0.72)),
+            child: Container(color: Colors.white.withValues(alpha: 0.72)),
           ),
 
           Column(
             children: [
-              /// ✅ Header image (top.jpg) + back
+              /// Header image (top.jpg) + back
               AppGradientHeader(
                 title: "Book Car Wash",
                 description: "Choose your date and time",
@@ -312,7 +317,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        /// ✅ BIGGER package tile + larger image (user-friendly)
+                        /// BIGGER package tile + larger image (user-friendly)
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -369,11 +374,11 @@ class _BookingScreenState extends State<BookingScreen> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFF16A34A)
-                                            .withOpacity(0.12),
+                                            .withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(999),
                                         border: Border.all(
                                           color: const Color(0xFF16A34A)
-                                              .withOpacity(0.35),
+                                              .withValues(alpha: 0.35),
                                         ),
                                       ),
                                       child: Text(
@@ -399,7 +404,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
                         const SizedBox(height: AppSpacing.lg),
 
-                        /// ✅ Date card
+                        /// Date card
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -434,11 +439,11 @@ class _BookingScreenState extends State<BookingScreen> {
                                 const SizedBox(height: AppSpacing.md),
                                 if (selectedDate != null)
                                   Text(
-                                    "Bookings for this date: $_totalBookingsForSelectedDate / $MAX_PER_DATE",
+                                    "Bookings for this date: $_totalBookingsForSelectedDate / $maxPerDate",
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
                                       color:
-                                          _totalBookingsForSelectedDate >= MAX_PER_DATE
+                                          _totalBookingsForSelectedDate >= maxPerDate
                                               ? AppColors.danger
                                               : AppColors.textStrong,
                                     ),
@@ -450,7 +455,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
                         const SizedBox(height: AppSpacing.lg),
 
-                        /// ✅ Time card
+                        /// Time card
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -463,7 +468,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                 ),
                                 const SizedBox(height: AppSpacing.md),
                                 DropdownButtonFormField<String>(
-                                  value: selectedTime,
+                                  initialValue: selectedTime,
                                   isExpanded: true,
                                   decoration: const InputDecoration(
                                     labelText: "Time slot",
@@ -474,7 +479,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                   items: timeSlots.map((slot) {
                                     final count =
                                         _slotCountsForSelectedDate[slot] ?? 0;
-                                    final isFull = count >= MAX_PER_SLOT;
+                                    final isFull = count >= maxPerSlot;
 
                                     String label = slot;
                                     if (isFull) {
@@ -509,7 +514,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
                         const SizedBox(height: AppSpacing.lg),
 
-                        /// ✅ Confirm button
+                        /// Confirm button
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(

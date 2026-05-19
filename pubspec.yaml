@@ -25,7 +25,7 @@ dependencies:
   flutter_local_notifications: ^17.0.0
 
   # JS interop (web)
-  # ✅ FIX: must be 0.6.x to be compatible with flutter_secure_storage_web
+  # FIX: must be 0.6.x to be compatible with flutter_secure_storage_web
   js: ^0.6.7
 
   # Maps & Navigation
@@ -51,6 +51,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.13.1
 
 flutter:

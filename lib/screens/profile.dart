@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'shared/app_ui.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -99,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     "createdAt": FieldValue.serverTimestamp(),
                   });
                 }
-                if (!mounted) return;
+                if (!mounted || !ctx.mounted) return;
                 Navigator.pop(ctx);
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -202,7 +203,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 "updatedAt": FieldValue.serverTimestamp(),
               });
 
-              if (!mounted) return;
+              if (!mounted || !ctx.mounted) return;
               Navigator.pop(ctx);
             },
             child: const Text("Save"),
@@ -228,12 +229,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       extendBodyBehindAppBar: false,
 
-      // ✅ TOP IMAGE in AppBar area (behind title)
+      // TOP IMAGE in AppBar area (behind title)
       appBar: AppBar(
-        title: const Text("Profile"),
+        title: const Text(
+          "Profile",
+          style: TextStyle(color: Colors.white),
+        ),
         centerTitle: true,
         elevation: 0,
         toolbarHeight: 70,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: "Add car",
@@ -250,13 +255,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Container(
             // dark overlay so title/icons stay readable
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withValues(alpha: 0.25),
           ),
         ),
         backgroundColor: Colors.transparent,
       ),
 
-      // ✅ Background image
+      // Background image
       body: Stack(
         children: [
           Positioned.fill(
@@ -266,14 +271,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          // ✅ light overlay so cards are readable
+          // light overlay so cards are readable
           Positioned.fill(
             child: Container(
-              color: Colors.white.withOpacity(0.45),
+              color: const Color(0xFFEAF1FF).withValues(alpha: 0.45),
             ),
           ),
 
-          // ✅ Original layout kept (Column with StreamBuilders)
+          // Original layout kept (Column with StreamBuilders)
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -313,7 +318,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         isThreeLine: phone.trim().isNotEmpty,
                         trailing: Container(
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.10),
+                            color: AppColors.brandA.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: IconButton(
@@ -373,11 +378,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 height: 42,
                                 width: 42,
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.12),
+                                  color: AppColors.brandA.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.directions_car,
-                                    color: Colors.blueAccent),
+                                    color: AppColors.brandA),
                               ),
                               title: Text(
                                 nick,

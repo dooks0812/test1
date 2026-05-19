@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'shared/app_ui.dart';
 
 class AdminCrudScreen extends StatefulWidget {
   const AdminCrudScreen({super.key});
@@ -12,7 +13,7 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
   final CollectionReference _packagesCol =
       FirebaseFirestore.instance.collection("packages");
 
-  /// Simple URL validation (http/https)
+// Simple URL validation (http/https)
   bool _isValidHttpUrl(String url) {
     final u = Uri.tryParse(url.trim());
     if (u == null) return false;
@@ -26,17 +27,22 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
     String? docId,
     Map<String, dynamic>? existing,
   }) async {
-    final bool isEdit = docId != null;
+    final bool isEdit = (docId ?? "").trim().isNotEmpty;
 
-    final nameCtrl =
-        TextEditingController(text: existing?["name"]?.toString() ?? "");
+    final nameCtrl = TextEditingController(
+      text: (existing?["name"] ?? existing?["packageName"] ?? "").toString(),
+    );
     final priceCtrl = TextEditingController(
       text: existing?["price"] == null ? "" : existing!["price"].toString(),
     );
     final descCtrl =
         TextEditingController(text: existing?["description"]?.toString() ?? "");
-    final imgCtrl =
-        TextEditingController(text: existing?["imageUrl"]?.toString() ?? "");
+    final imgCtrl = TextEditingController(
+      text: (existing?["imageUrl"] ?? existing?["image"] ?? "").toString(),
+    );
+
+    String? inlineError;
+    bool isSaving = false;
 
     await showDialog(
       context: context,
@@ -44,13 +50,30 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             final imageUrl = imgCtrl.text.trim();
-            final showPreview = imageUrl.isNotEmpty && _isValidHttpUrl(imageUrl);
+            final showPreview =
+                imageUrl.isNotEmpty && _isValidHttpUrl(imageUrl);
 
             return AlertDialog(
               title: Text(isEdit ? "Update Package" : "Create Package"),
               content: SingleChildScrollView(
                 child: Column(
                   children: [
+                    if (inlineError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Text(
+                          inlineError!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     // ----------------------------
                     // Package name
                     // ----------------------------
@@ -148,83 +171,100 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
                   child: const Text("Cancel"),
                 ),
                 ElevatedButton(
-                  onPressed: () async {
-                    final name = nameCtrl.text.trim();
-                    final priceStr = priceCtrl.text.trim();
-                    final desc = descCtrl.text.trim();
-                    final img = imgCtrl.text.trim();
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          setDialogState(() => inlineError = null);
+                          final name = nameCtrl.text.trim();
+                          final priceStr = priceCtrl.text.trim();
+                          final desc = descCtrl.text.trim();
+                          final img = imgCtrl.text.trim();
 
-                    // Validate fields
-                    if (name.isEmpty ||
-                        priceStr.isEmpty ||
-                        desc.isEmpty ||
-                        img.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Please fill all fields")),
-                      );
-                      return;
-                    }
+                          // Validate fields
+                          if (name.isEmpty || priceStr.isEmpty || img.isEmpty) {
+                            setDialogState(() {
+                              inlineError =
+                                  "Please fill package name, price, and image URL.";
+                            });
+                            return;
+                          }
 
-                    // Validate price
-                    final price = double.tryParse(priceStr);
-                    if (price == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Price must be a number")),
-                      );
-                      return;
-                    }
+                          // Validate price
+                          final price = double.tryParse(priceStr);
+                          if (price == null) {
+                            setDialogState(() {
+                              inlineError = "Price must be a number.";
+                            });
+                            return;
+                          }
 
-                    // Validate URL
-                    if (!_isValidHttpUrl(img)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Invalid image URL. Use a direct http/https link.",
-                          ),
-                        ),
-                      );
-                      return;
-                    }
+                          // Validate URL
+                          if (!_isValidHttpUrl(img)) {
+                            setDialogState(() {
+                              inlineError =
+                                  "Invalid image URL. Use a direct http/https link.";
+                            });
+                            return;
+                          }
 
-                    final payload = <String, dynamic>{
-                      "name": name,
-                      "price": price,
-                      "description": desc,
-                      "imageUrl": img,
-                      "updatedAt": FieldValue.serverTimestamp(),
-                    };
+                          final payload = <String, dynamic>{
+                            "name": name,
+                            "packageName": name,
+                            "price": price,
+                            "description": desc,
+                            "imageUrl": img,
+                            "updatedAt": FieldValue.serverTimestamp(),
+                          };
 
-                    try {
-                      if (isEdit) {
-                        await _packagesCol.doc(docId).update(payload);
-                      } else {
-                        await _packagesCol.add({
-                          ...payload,
-                          "createdAt": FieldValue.serverTimestamp(),
-                        });
-                      }
+                          setDialogState(() => isSaving = true);
 
-                      if (!mounted) return;
-                      Navigator.pop(ctx);
+                          try {
+                            if (isEdit) {
+                              await _packagesCol.doc(docId!).set(
+                                    payload,
+                                    SetOptions(merge: true),
+                                  );
+                            } else {
+                              await _packagesCol.add({
+                                ...payload,
+                                "createdAt": FieldValue.serverTimestamp(),
+                              });
+                            }
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isEdit ? "Package updated ✅" : "Package created ✅",
-                          ),
-                        ),
-                      );
-                    } on FirebaseException catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Firebase error: ${e.message}")),
-                      );
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Error: $e")),
-                      );
-                    }
-                  },
-                  child: Text(isEdit ? "Update" : "Create"),
+                            if (!mounted || !ctx.mounted) return;
+                            Navigator.pop(ctx);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isEdit
+                                      ? "Package updated ✅"
+                                      : "Package created ✅",
+                                ),
+                              ),
+                            );
+                          } on FirebaseException catch (e) {
+                            if (!mounted || !ctx.mounted) return;
+                            setDialogState(() {
+                              isSaving = false;
+                              inlineError =
+                                  e.message ?? "Firebase error: ${e.code}";
+                            });
+                          } catch (e) {
+                            if (!mounted || !ctx.mounted) return;
+                            setDialogState(() {
+                              isSaving = false;
+                              inlineError = "Error: $e";
+                            });
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(isEdit ? "Update" : "Create"),
                 ),
               ],
             );
@@ -263,10 +303,12 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
         const SnackBar(content: Text("Package deleted ✅")),
       );
     } on FirebaseException catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Firebase error: ${e.message}")),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
       );
@@ -278,7 +320,8 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Admin - Manage Packages"),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: AppColors.brandA,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: "Add Package",
@@ -299,7 +342,7 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
           if (snapshot.hasError) {
             return Center(child: Text("Error: ${snapshot.error}"));
           }
-
+//Gets all package documents.
           final docs = snapshot.data?.docs ?? [];
           if (docs.isEmpty) {
             return const Center(
@@ -316,10 +359,14 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
               final data = doc.data() as Map<String, dynamic>;
               final id = doc.id;
 
-              final name = (data["name"] ?? "").toString();
+              final name =
+                  (data["name"] ?? data["packageName"] ?? "").toString();
               final desc = (data["description"] ?? "").toString();
-              final img = (data["imageUrl"] ?? "").toString();
-              final price = (data["price"] as num?)?.toDouble() ?? 0.0;
+              final img = (data["imageUrl"] ?? data["image"] ?? "").toString();
+              final rawPrice = data["price"];
+              final price = rawPrice is num
+                  ? rawPrice.toDouble()
+                  : double.tryParse(rawPrice?.toString() ?? "") ?? 0.0;
 
               return Card(
                 elevation: 2,
@@ -345,7 +392,6 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,7 +413,6 @@ class _AdminCrudScreenState extends State<AdminCrudScreen> {
                               style: const TextStyle(color: Colors.black54),
                             ),
                             const SizedBox(height: 10),
-
                             Row(
                               children: [
                                 OutlinedButton.icon(

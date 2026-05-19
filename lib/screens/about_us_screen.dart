@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'shared/app_ui.dart';
 
-// ✅ ADD THIS
+
 import 'user_dashboard.dart';
 
 class AboutUsScreen extends StatelessWidget {
   const AboutUsScreen({super.key});
 
-  // ✅ Your contact details
+  //Your contact details
   static const String _phone = "+23058095168"; // no spaces for tel:
   static const String _phoneDisplay = "+230 5809 5168";
 
@@ -15,7 +16,7 @@ class AboutUsScreen extends StatelessWidget {
 
   static const String _address = "Etwar Road Ecroignard, Flacq, Mauritius";
 
-  // ✅ Optional: exact Google Maps query
+  // Optional: exact Google Maps query
   static const String _mapsQuery =
       "Etwar Road Ecroignard, Flacq, Mauritius";
 
@@ -31,15 +32,19 @@ class AboutUsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ✅ Top image in AppBar area
+      //Top image in AppBar area
       appBar: AppBar(
-        title: const Text("About Us"),
+        title: const Text(
+          "About Us",
+          style: TextStyle(color: Colors.white),
+        ),
         centerTitle: true,
         elevation: 0,
         toolbarHeight: 70,
-        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
 
-        // ✅ ADD: Back button → UserDashboard
+        //ADD: Back button → UserDashboard
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           tooltip: "Back",
@@ -63,12 +68,12 @@ class AboutUsScreen extends StatelessWidget {
           ),
           child: Container(
             // overlay for readability (NOT blur)
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withValues(alpha: 0.25),
           ),
         ),
       ),
 
-      // ✅ Background image (NOT blurred)
+      //Background image (NOT blurred)
       body: Stack(
         children: [
           Positioned.fill(
@@ -80,7 +85,9 @@ class AboutUsScreen extends StatelessWidget {
 
           // light overlay so text stays readable (NOT blur)
           Positioned.fill(
-            child: Container(color: Colors.white.withOpacity(0.80)),
+            child: Container(
+              color: const Color(0xFFEAF1FF).withValues(alpha: 0.82),
+            ),
           ),
 
           Center(
@@ -106,7 +113,7 @@ class AboutUsScreen extends StatelessWidget {
                               width: 64,
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.10),
+                                color: AppColors.brandA.withValues(alpha: 0.10),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Image.asset(
@@ -144,7 +151,7 @@ class AboutUsScreen extends StatelessWidget {
 
                     const SizedBox(height: 14),
 
-                    // ✅ Who are we
+                    //Who are we
                     Card(
                       elevation: 2,
                       shape: RoundedRectangleBorder(
@@ -176,7 +183,7 @@ class AboutUsScreen extends StatelessWidget {
 
                     const SizedBox(height: 14),
 
-                    // ✅ Mission
+                    //Mission
                     Card(
                       elevation: 2,
                       shape: RoundedRectangleBorder(
@@ -206,7 +213,7 @@ class AboutUsScreen extends StatelessWidget {
 
                     const SizedBox(height: 14),
 
-                    // ✅ Contact + redirects
+                    //Contact + redirects
                     Card(
                       elevation: 2,
                       shape: RoundedRectangleBorder(
@@ -233,11 +240,11 @@ class AboutUsScreen extends StatelessWidget {
                                 height: 40,
                                 width: 40,
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.12),
+                                  color: AppColors.brandA.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.phone,
-                                    color: Colors.blueAccent),
+                                    color: AppColors.brandA),
                               ),
                               title: const Text("Phone"),
                               subtitle: const Text(_phoneDisplay),
@@ -253,11 +260,11 @@ class AboutUsScreen extends StatelessWidget {
                                 height: 40,
                                 width: 40,
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.12),
+                                  color: AppColors.brandA.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.email,
-                                    color: Colors.blueAccent),
+                                    color: AppColors.brandA),
                               ),
                               title: const Text("Email"),
                               subtitle: const Text(_email),
@@ -279,11 +286,11 @@ class AboutUsScreen extends StatelessWidget {
                                 height: 40,
                                 width: 40,
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.12),
+                                  color: AppColors.brandA.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.location_on,
-                                    color: Colors.blueAccent),
+                                    color: AppColors.brandA),
                               ),
                               title: const Text("Location"),
                               subtitle: const Text(_address),

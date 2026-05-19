@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ✅ shared theme/widgets
+// shared theme/widgets
 import 'shared/app_ui.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -36,8 +36,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
-    for (final c in _nickCtrls) c.dispose();
-    for (final c in _plateCtrls) c.dispose();
+    for (final c in _nickCtrls) {
+      c.dispose();
+    }
+    for (final c in _plateCtrls) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -135,6 +139,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       _toast("Account created successfully!");
+      
       Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
       String msg = "Registration failed";
@@ -195,143 +200,161 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          AppGradientHeader(
-            title: "Register",
-            subtitle: "Create your account",
-            description: "Add contact details and your car plate(s) for IoT tracking.",
-            backgroundImageAsset: "assets/images/top.jpg",
-            trailing: IconButton(
-              tooltip: "Back",
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+          Positioned.fill(
+            child: Image.asset(
+              "assets/images/bg.jpg",
+              fit: BoxFit.cover,
             ),
           ),
-          Expanded(
-            child: AppPage(
-              maxWidth: 520,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+          Positioned.fill(
+            child: Container(
+              color: Colors.white.withValues(alpha: 0.45),
+            ),
+          ),
+          Column(
+            children: [
+              AppGradientHeader(
+                title: "Register",
+                subtitle: "Create your account",
+                description: "Add contact details and your car plate(s) for IoT tracking.",
+                backgroundImageAsset: "assets/images/top.jpg",
+                trailing: IconButton(
+                  tooltip: "Back",
+                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              Expanded(
+                child: AppPage(
+                  maxWidth: 520,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  "Contact Details",
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                TextField(
+                                  controller: _nameCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: "Full name",
+                                    prefixIcon: Icon(Icons.person_outline),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                TextField(
+                                  controller: _phoneCtrl,
+                                  keyboardType: TextInputType.phone,
+                                  decoration: const InputDecoration(
+                                    labelText: "Phone number",
+                                    prefixIcon: Icon(Icons.phone_outlined),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                TextField(
+                                  controller: _emailCtrl,
+                                  keyboardType: TextInputType.emailAddress,
+                                  decoration: const InputDecoration(
+                                    labelText: "Email",
+                                    prefixIcon: Icon(Icons.email_outlined),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                TextField(
+                                  controller: _passwordCtrl,
+                                  obscureText: !_showPassword,
+                                  decoration: InputDecoration(
+                                    labelText: "Password",
+                                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                    suffixIcon: IconButton(
+                                      tooltip: _showPassword ? "Hide password" : "Show password",
+                                      icon: Icon(
+                                        _showPassword
+                                            ? Icons.visibility_off_rounded
+                                            : Icons.visibility_rounded,
+                                      ),
+                                      onPressed: () => setState(() => _showPassword = !_showPassword),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: AppSpacing.lg),
+
+                        Row(
                           children: [
                             Text(
-                              "Contact Details",
+                              "Cars",
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
-                            const SizedBox(height: AppSpacing.md),
-                            TextField(
-                              controller: _nameCtrl,
-                              decoration: const InputDecoration(
-                                labelText: "Full name",
-                                prefixIcon: Icon(Icons.person_outline),
-                              ),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed: _isLoading ? null : _addCarRow,
+                              icon: const Icon(Icons.add),
+                              label: const Text("Add car"),
                             ),
-                            const SizedBox(height: AppSpacing.md),
-                            TextField(
-                              controller: _phoneCtrl,
-                              keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                labelText: "Phone number",
-                                prefixIcon: Icon(Icons.phone_outlined),
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            TextField(
-                              controller: _emailCtrl,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: const InputDecoration(
-                                labelText: "Email",
-                                prefixIcon: Icon(Icons.email_outlined),
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            TextField(
-                              controller: _passwordCtrl,
-                              obscureText: !_showPassword,
-                              decoration: InputDecoration(
-                                labelText: "Password",
-                                prefixIcon: const Icon(Icons.lock_outline_rounded),
-                                suffixIcon: IconButton(
-                                  tooltip: _showPassword ? "Hide password" : "Show password",
-                                  icon: Icon(
-                                    _showPassword
-                                        ? Icons.visibility_off_rounded
-                                        : Icons.visibility_rounded,
-                                  ),
-                                  onPressed: () => setState(() => _showPassword = !_showPassword),
-                                ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+
+                        for (int i = 0; i < _nickCtrls.length; i++) ...[
+                          _carRow(i),
+                          const SizedBox(height: AppSpacing.md),
+                        ],
+
+                        const SizedBox(height: AppSpacing.lg),
+
+                        SizedBox(
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _register,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Text("Create account"),
+                          ),
+                        ),
+
+                        const SizedBox(height: AppSpacing.md),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.sensors, size: 18, color: AppColors.textMuted),
+                            SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                "Plate-based IoT monitoring enabled",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: AppColors.textMuted),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
 
-                    const SizedBox(height: AppSpacing.lg),
-
-                    Row(
-                      children: [
-                        Text(
-                          "Cars",
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: _isLoading ? null : _addCarRow,
-                          icon: const Icon(Icons.add),
-                          label: const Text("Add car"),
-                        ),
+                        const SizedBox(height: AppSpacing.lg),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-
-                    for (int i = 0; i < _nickCtrls.length; i++) ...[
-                      _carRow(i),
-                      const SizedBox(height: AppSpacing.md),
-                    ],
-
-                    const SizedBox(height: AppSpacing.lg),
-
-                    SizedBox(
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _register,
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text("Create account"),
-                      ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.sensors, size: 18, color: AppColors.textMuted),
-                        SizedBox(width: 8),
-                        Text(
-                          "Plate-based IoT monitoring enabled",
-                          style: TextStyle(color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: AppSpacing.lg),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),

@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-// ✅ Shared UI (header + spacing + theme)
 import 'shared/app_ui.dart';
-
 import 'payment_screen.dart';
 
 class CarDetailsScreen extends StatefulWidget {
-  // ✅ from BookingScreen
+  //from BookingScreen
   final String bookingId;
   final DateTime bookingDate;
   final String timeSlot;
 
-  // ✅ optional package data
+  //optional package data
   final String? packageName;
   final double? packagePrice;
   final String? imageUrl;
@@ -35,17 +32,17 @@ class CarDetailsScreen extends StatefulWidget {
 class _CarDetailsScreenState extends State<CarDetailsScreen> {
   bool _isSaving = false;
 
-  // ✅ Selected car (document id)
+  //Selected car (document id)
   String? _selectedCarId;
 
   String _formatDate(DateTime d) => "${d.day}/${d.month}/${d.year}";
 
-  /// ✅ Save selected car into booking and go to payment
+  ///Save selected car into booking and go to payment
   Future<void> _saveSelectedCarAndGoPayment({
     required Map<String, dynamic> carData,
     required String carId,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = FirebaseAuth.instance.currentUser;//chk if logged in
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("You must be logged in.")),
@@ -69,8 +66,8 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
         return;
       }
 
-      // ✅ Attach car selection to booking document
-      await FirebaseFirestore.instance
+      //Attach car selection to booking document
+      await FirebaseFirestore.instance //updates the existing booking document
           .collection("bookings")
           .doc(widget.bookingId)
           .update({
@@ -88,7 +85,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => PaymentScreen(
+          builder: (_) => PaymentScreen( //opens the payment screen and these value are passed on 
             bookingId: widget.bookingId,
             date: _formatDate(widget.bookingDate),
             time: widget.timeSlot,
@@ -111,7 +108,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasPackage = widget.packageName != null &&
+    final hasPackage = widget.packageName != null && //checks whether all package values are available
         widget.packagePrice != null &&
         widget.imageUrl != null;
 
@@ -120,7 +117,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          /// ✅ Background image (bg.jpg)
+          ///Background image (bg.jpg)
           Positioned.fill(
             child: Image.asset(
               "assets/images/bg.jpg",
@@ -130,15 +127,15 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
             ),
           ),
 
-          /// ✅ Soft overlay for readability
+          ///Soft overlay for readability
           Positioned.fill(
-            child: Container(color: Colors.white.withOpacity(0.72)),
+            child: Container(color: Colors.white.withValues(alpha: 0.72)),
           ),
 
-          /// ✅ Whole screen scrollable INCLUDING the header
+          ///Whole screen scrollable INCLUDING the header
           (user == null)
               ? const Center(child: Text("You must be logged in."))
-              : StreamBuilder<QuerySnapshot>(
+              : StreamBuilder<QuerySnapshot>( //istens to the logged-in user’s saved cars in real time
                   stream: FirebaseFirestore.instance
                       .collection("users")
                       .doc(user.uid)
@@ -195,7 +192,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
                       );
                     }
 
-                    // ✅ dropdown items
+                    //dropdown items
                     final items = docs.map((d) {
                       final data = d.data() as Map<String, dynamic>;
                       final nickname =
@@ -212,7 +209,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
                       );
                     }).toList();
 
-                    // ✅ Ensure selected value stays valid
+                    //Ensure selected value stays valid
                     if (_selectedCarId == null ||
                         !docs.any((d) => d.id == _selectedCarId)) {
                       _selectedCarId = docs.first.id;
@@ -220,7 +217,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
 
                     return CustomScrollView(
                       slivers: [
-                        /// ✅ Header is now scrollable (part of the scroll view)
+                        ///Header is now scrollable (part of the scroll view)
                         SliverToBoxAdapter(
                           child: AppGradientHeader(
                             title: "Select Vehicle",
@@ -243,7 +240,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                /// ✅ Booking Summary card
+                                ///Booking Summary card
                                 Card(
                                   child: Padding(
                                     padding:
@@ -299,7 +296,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
 
                                 const SizedBox(height: AppSpacing.lg),
 
-                                /// ✅ Bigger package tile + reasonable image size
+                                ///Bigger package tile + reasonable image size
                                 if (hasPackage) ...[
                                   Card(
                                     child: Padding(
@@ -361,14 +358,14 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
                                                 ),
                                                 decoration: BoxDecoration(
                                                   color: const Color(0xFF16A34A)
-                                                      .withOpacity(0.12),
+                                                      .withValues(alpha: 0.12),
                                                   borderRadius:
                                                       BorderRadius.circular(
                                                           999),
                                                   border: Border.all(
                                                     color: const Color(
                                                             0xFF16A34A)
-                                                        .withOpacity(0.35),
+                                                        .withValues(alpha: 0.35),
                                                   ),
                                                 ),
                                                 child: Text(
@@ -394,7 +391,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
                                   const SizedBox(height: AppSpacing.lg),
                                 ],
 
-                                /// ✅ Select car card
+                                ///Select car card
                                 Card(
                                   child: Padding(
                                     padding:
@@ -411,7 +408,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
                                         ),
                                         const SizedBox(height: AppSpacing.md),
                                         DropdownButtonFormField<String>(
-                                          value: _selectedCarId,
+                                          initialValue: _selectedCarId,
                                           items: items,
                                           decoration: const InputDecoration(
                                             labelText: "Choose a car",
@@ -432,7 +429,7 @@ class _CarDetailsScreenState extends State<CarDetailsScreen> {
 
                                 const SizedBox(height: AppSpacing.lg),
 
-                                /// ✅ Proceed button
+                                ///Proceed button
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(

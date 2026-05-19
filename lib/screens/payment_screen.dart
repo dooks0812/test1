@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// ✅ Shared UI (top.jpg header + bg.jpg background)
+// Shared UI (top.jpg header + bg.jpg background)
 import 'shared/app_ui.dart';
 
-// ✅ ADD THIS IMPORT
+// ADD THIS IMPORT
 import 'user_dashboard.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -30,13 +30,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? selectedPaymentMethod;
   bool _saving = false;
 
-  /// ✅ Rule: ONLY the 6th wash gets 10% off (based on APPROVED payments count before this one)
+  /// Rule: ONLY the 6th wash gets 10% off (based on APPROVED payments count before this one)
   static const int _sixthWashApprovedBefore = 5; // 5 approved before => this is 6th
   static const double _sixthWashDiscountRate = 0.10; // 10%
 
   double _round2(double v) => double.parse(v.toStringAsFixed(2));
 
-  /// ✅ Count user's APPROVED payments
+  /// Count user's APPROVED payments
   Future<int> _countApprovedPayments(String uid) async {
     final snap = await FirebaseFirestore.instance
         .collection("payments")
@@ -47,7 +47,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return snap.size;
   }
 
-  /// ✅ Prevent giving the "6th wash" reward more than once (even with race conditions)
+  /// Prevent giving the "6th wash" reward more than once (even with race conditions)
   Future<bool> _hasUsedSixthWashReward(String uid) async {
     final snap = await FirebaseFirestore.instance
         .collection("payments")
@@ -58,7 +58,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return snap.docs.isNotEmpty;
   }
 
-  /// ✅ Special offer lookup (best-effort, won't break if fields/collection don't exist)
+  /// Discount lookup (best-effort, won't break if fields/collection don't exist)
   ///
   /// Supported schemas (any one works):
   /// 1) users/{uid} fields:
@@ -151,7 +151,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<_DiscountInfo> _computeDiscount(String uid) async {
     final approvedCount = await _countApprovedPayments(uid);
 
-    // Special offer wins over 6th wash reward
+    // Discount wins over 6th wash reward
     final offer = await _fetchSpecialOffer(uid);
 
     // Sixth wash reward (ONLY when approvedCount == 5, and only once)
@@ -243,7 +243,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final booking = bookingSnap.data() ?? {};
 
       final car = booking["car"] as Map<String, dynamic>?;
-      // ✅ robust: supports plateNumber OR plateRaw
+      // robust: supports plateNumber OR plateRaw
       final plateNumber = (car?["plateNumber"] ?? car?["plateRaw"] ?? "")
           .toString()
           .trim();
@@ -251,7 +251,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final pkg = booking["package"] as Map<String, dynamic>?;
       final pkgName = (pkg?["name"] ?? "").toString();
 
-      // 2) ✅ Compute discount (ONLY 6th OR special offer)
+      // 2) Compute discount (ONLY 6th OR discount)
       final info = await _computeDiscount(user.uid);
 
       final double originalAmount = widget.price;
@@ -260,7 +260,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           info.rate > 0 ? _round2(originalAmount * info.rate) : 0.0;
       final double finalAmount = _round2(originalAmount - discountAmount);
 
-      // 3) ✅ Save payment
+      // 3) Save payment
       await FirebaseFirestore.instance.collection("payments").add({
         "bookingId": widget.bookingId,
         "userId": user.uid,
@@ -286,11 +286,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         "discountApplied": info.rate > 0,
         "discountReason": info.reason, // "sixth_wash" | "special_offer" | "none"
 
-        // ✅ important: ensures 6th wash reward is not reused
+        // important: ensures 6th wash reward is not reused
         "sixthWashRewardApplied": info.sixthApplied,
       });
 
-      // 4) ✅ consume special offer if it was used
+      // 4)consume discount if it was used
       if (info.reason == "special_offer") {
         await _consumeSpecialOfferIfAny(user.uid, info.offer);
       }
@@ -307,7 +307,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ),
       );
 
-      // ✅ CHANGE: go to UserDashboard and remove previous screens
+      // CHANGE: go to UserDashboard and remove previous screens
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const UserDashboard()),
@@ -333,7 +333,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          /// ✅ Background image (bg.jpg)
+          /// Background image (bg.jpg)
           Positioned.fill(
             child: Image.asset(
               "assets/images/bg.jpg",
@@ -343,12 +343,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ),
 
-          /// ✅ Overlay (clearer bg)
+          /// Overlay (clearer bg)
           Positioned.fill(
-            child: Container(color: Colors.white.withOpacity(0.45)),
+            child: Container(color: Colors.white.withValues(alpha: 0.45)),
           ),
 
-          /// ✅ Scrollable screen (top included)
+          /// Scrollable screen (top included)
           CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
@@ -372,7 +372,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      /// ✅ Summary card
+                      /// Summary card
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -410,7 +410,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               ),
                               const SizedBox(height: AppSpacing.md),
 
-                              /// ✅ Discount preview (6th wash OR special offer)
+                              /// Discount preview (6th wash OR discount)
                               if (user != null)
                                 FutureBuilder<_DiscountInfo>(
                                   future: _computeDiscount(user.uid),
@@ -459,7 +459,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                                     final label = info.reason == "sixth_wash"
                                         ? "6th wash reward: 10% OFF"
-                                        : "Special offer: ${(info.rate * 100).toStringAsFixed(0)}% OFF";
+                                        : "Discount: ${(info.rate * 100).toStringAsFixed(0)}% OFF";
 
                                     return _Badge(
                                       icon: Icons.local_offer_rounded,
@@ -476,7 +476,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                       const SizedBox(height: AppSpacing.lg),
 
-                      /// ✅ Payment method card
+                      /// Payment method card
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -488,42 +488,45 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const SizedBox(height: AppSpacing.md),
-                              RadioListTile<String>(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text(
-                                  "Card",
-                                  style: TextStyle(fontWeight: FontWeight.w800),
-                                ),
-                                subtitle: const Text(
-                                  "Pay by card (online / terminal)",
-                                  style: TextStyle(color: AppColors.textMuted),
-                                ),
-                                value: "Card",
+                              RadioGroup<String>(
                                 groupValue: selectedPaymentMethod,
-                                onChanged: _saving
-                                    ? null
-                                    : (v) => setState(
-                                          () => selectedPaymentMethod = v,
-                                        ),
-                              ),
-                              const Divider(height: 1),
-                              RadioListTile<String>(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text(
-                                  "Cash on Site",
-                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                onChanged: (value) {
+                                  if (_saving) return;
+                                  setState(() => selectedPaymentMethod = value);
+                                },
+                                child: Column(
+                                  children: [
+                                    RadioListTile<String>(
+                                      contentPadding: EdgeInsets.zero,
+                                      title: const Text(
+                                        "Card",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w800),
+                                      ),
+                                      subtitle: const Text(
+                                        "Pay by card (online / terminal)",
+                                        style:
+                                            TextStyle(color: AppColors.textMuted),
+                                      ),
+                                      value: "Card",
+                                    ),
+                                    const Divider(height: 1),
+                                    RadioListTile<String>(
+                                      contentPadding: EdgeInsets.zero,
+                                      title: const Text(
+                                        "Cash on Site",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w800),
+                                      ),
+                                      subtitle: const Text(
+                                        "Pay when you arrive at the car wash",
+                                        style:
+                                            TextStyle(color: AppColors.textMuted),
+                                      ),
+                                      value: "Cash",
+                                    ),
+                                  ],
                                 ),
-                                subtitle: const Text(
-                                  "Pay when you arrive at the car wash",
-                                  style: TextStyle(color: AppColors.textMuted),
-                                ),
-                                value: "Cash",
-                                groupValue: selectedPaymentMethod,
-                                onChanged: _saving
-                                    ? null
-                                    : (v) => setState(
-                                          () => selectedPaymentMethod = v,
-                                        ),
                               ),
                             ],
                           ),
@@ -532,7 +535,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                       const SizedBox(height: AppSpacing.xl),
 
-                      /// ✅ Confirm button
+                      /// Confirm button
                       SizedBox(
                         width: double.infinity,
                         height: 54,
@@ -616,8 +619,8 @@ class _Badge extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: strong
-            ? AppColors.brandA.withOpacity(0.08)
-            : Colors.black.withOpacity(0.03),
+            ? AppColors.brandA.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(AppRadii.md),
         border: Border.all(color: AppColors.borderSoft),
       ),

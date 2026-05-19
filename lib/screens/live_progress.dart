@@ -2,8 +2,63 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:intl/intl.dart';
 import 'package:car_wash_app/services/notification_service.dart';
+import 'shared/app_ui.dart';
+
+const double kCompletionProgressThreshold = 95.0;
+
+DateTime? _parseFlexibleDateTime(dynamic value) {
+  if (value == null) return null;
+
+  if (value is Timestamp) return value.toDate().toLocal();
+  if (value is DateTime) return value.toLocal();
+
+  if (value is int) {
+    if (value <= 0) return null;
+
+    // Supports epoch in both seconds and milliseconds.
+    final ms = value >= 1000000000000 ? value : value * 1000;
+    return DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
+  }
+
+  if (value is double) {
+    return _parseFlexibleDateTime(value.toInt());
+  }
+
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+
+    final parsed = DateTime.tryParse(trimmed);
+    if (parsed != null) return parsed.toLocal();
+
+    final numeric = int.tryParse(trimmed);
+    if (numeric != null) {
+      return _parseFlexibleDateTime(numeric);
+    }
+  }
+
+  return null;
+}
+
+bool _isCompletionStage(String stage) {
+  final s = stage.trim().toUpperCase();
+  if (s.isEmpty) return false;
+
+  if (s == "DONE" || s.contains("DONE") || s.contains("COMPLETE")) return true;
+
+  // Some backends end at POLISH_END without emitting DONE.
+  if (s == "POLISH_END" || (s.contains("POLISH") && s.contains("END"))) {
+    return true;
+  }
+
+  return false;
+}
+
+bool _isWashFullyComplete(String stage, double progress) {
+  return progress >= kCompletionProgressThreshold && _isCompletionStage(stage);
+}
 
 class LiveProgressScreen extends StatefulWidget {
   const LiveProgressScreen({super.key});
@@ -15,6 +70,9 @@ class LiveProgressScreen extends StatefulWidget {
 class _LiveProgressScreenState extends State<LiveProgressScreen> {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _eventSub;
   String? _lastEventId;
+  String _latestEventPlate = "";
+  DateTime? _latestEventAt;
+  bool _doneSweetAlertShown = false;
 
   @override
   void initState() {
@@ -45,6 +103,24 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
       final data = doc.data();
       final type = (data['type'] ?? 'UPDATE').toString();
       final plateKey = (data['plateKey'] ?? '').toString();
+      final isCompletion = _isCompletionEvent(type);
+      final eventAt = _parseFlexibleDateTime(data['createdAt']);
+      if (eventAt != null &&
+          (_latestEventAt == null || eventAt.isAfter(_latestEventAt!))) {
+        if (mounted) {
+          setState(() => _latestEventAt = eventAt);
+        } else {
+          _latestEventAt = eventAt;
+        }
+      }
+      if (plateKey.trim().isNotEmpty) {
+        final normalized = plateKey.trim().toUpperCase();
+        if (mounted && normalized != _latestEventPlate) {
+          setState(() => _latestEventPlate = normalized);
+        } else {
+          _latestEventPlate = normalized;
+        }
+      }
 
       final titleMap = {
         'CAR_ARRIVED': 'Car arrived ✅',
@@ -57,15 +133,40 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
         'DONE': 'Car wash complete 🎉',
       };
 
-      final title = titleMap[type] ?? 'Car Wash Update';
-      final body = plateKey.isNotEmpty ? 'Plate: $plateKey' : 'Stage updated';
+      final title = isCompletion
+          ? _completionTitle(type)
+          : (titleMap[type] ?? 'Car Wash Update');
+      final body = isCompletion
+          ? (plateKey.isNotEmpty
+              ? 'Stage completed for plate: ${plateKey.toUpperCase()}'
+              : 'Current stage has been completed.')
+          : (plateKey.isNotEmpty ? 'Plate: $plateKey' : 'Stage updated');
 
-      // ✅ 1) Your Local Notification (kept)
+      // 1) Your Local Notification (kept)
       await LocalNotifs.show(title: title, body: body);
 
-      // ✅ 2) Sweet in-app alert (added)
+      // 2) Sweet in-app alert (added)
       if (!mounted) return;
-      _showSweetAlert(title: title, body: body, type: type);
+      if (_isCompletionEvent(type) && !_doneSweetAlertShown) {
+        final sessionSnap = await FirebaseFirestore.instance
+            .collection("wash_sessions")
+            .doc("1")
+            .get();
+        final sessionData = sessionSnap.data() ?? <String, dynamic>{};
+        final sessionStage = (sessionData["stage"] ?? "").toString();
+        final rawSessionProgress = sessionData["progress"] ?? 0;
+        final sessionProgress = rawSessionProgress is num
+            ? rawSessionProgress.toDouble()
+            : double.tryParse(rawSessionProgress.toString()) ?? 0;
+        final p = sessionProgress.clamp(0, 100).toDouble();
+
+        if (!_isWashFullyComplete(sessionStage, p)) {
+          return;
+        }
+        if (!mounted) return;
+        _doneSweetAlertShown = true;
+        _showSweetAlert(title: title, body: body, type: type);
+      }
     });
   }
 
@@ -75,23 +176,49 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
     required String type,
   }) {
     final icon = _eventIcon(type);
+    final isCompletion = _isCompletionEvent(type);
 
     showDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: !isCompletion,
       builder: (ctx) => _SweetAlertDialog(
         title: title,
         message: body,
         icon: icon,
+        actionLabel: isCompletion ? "Back to Dashboard" : null,
+        onActionPressed: isCompletion
+            ? () {
+                if (Navigator.of(context, rootNavigator: true).canPop()) {
+                  Navigator.of(context, rootNavigator: true).pop();
+                }
+                if (!mounted) return;
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
+            : null,
       ),
     );
 
-    // Auto close after short time (feels smooth, not annoying)
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-    });
+    if (!isCompletion) {
+      // Auto close after short time (feels smooth, not annoying)
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      });
+    }
+  }
+
+  bool _isCompletionEvent(String type) {
+    return type.toUpperCase() == "DONE";
+  }
+
+  String _completionTitle(String type) {
+    switch (type.toUpperCase()) {
+      case "DONE":
+        return "Car wash completed";
+      default:
+        return "Stage completed";
+    }
   }
 
   IconData _eventIcon(String type) {
@@ -114,6 +241,44 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
     }
   }
 
+  String _extractPlateFromSession(Map<String, dynamic> data) {
+    final direct = (data["plateNumber"] ??
+            data["plateRaw"] ??
+            data["plate"] ??
+            data["plateNo"] ??
+            data["plateKey"] ??
+            "")
+        .toString()
+        .trim();
+    if (direct.isNotEmpty) return direct.toUpperCase();
+
+    final car = data["car"];
+    if (car is Map<String, dynamic>) {
+      final nested =
+          (car["plateNumber"] ?? car["plateRaw"] ?? car["plateKey"] ?? "")
+              .toString()
+              .trim();
+      if (nested.isNotEmpty) return nested.toUpperCase();
+    }
+
+    return "";
+  }
+
+  DateTime? _extractSessionTimestamp(Map<String, dynamic> data) {
+    final candidates = <dynamic>[
+      data["updatedAt"],
+      data["lastUpdatedAt"],
+      data["createdAt"],
+      data["timestamp"],
+    ];
+
+    for (final candidate in candidates) {
+      final dt = _parseFlexibleDateTime(candidate);
+      if (dt != null) return dt;
+    }
+    return null;
+  }
+
   @override
   void dispose() {
     _eventSub?.cancel();
@@ -130,7 +295,7 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
       );
     }
 
-    // ✅ Keeping your session doc usage
+    // Keeping your session doc usage
     final sessionRef =
         FirebaseFirestore.instance.collection("wash_sessions").doc("1");
 
@@ -138,6 +303,8 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
       appBar: AppBar(
         title: const Text("Live Progress"),
         centerTitle: true,
+        backgroundColor: AppColors.brandA,
+        foregroundColor: Colors.white,
       ),
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: sessionRef.snapshots(),
@@ -148,7 +315,7 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
 
           final data = snap.data?.data();
 
-          // ✅ Always show timeline even if nothing found
+          // Always show timeline even if nothing found
           if (data == null) {
             return _WaitingTimeline(
               title: "Waiting for your car…",
@@ -158,18 +325,24 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
           }
 
           final sessionActive = (data["sessionActive"] ?? false) as bool;
-          final sessionUid = (data["userid"] ?? data["userId"] ?? "").toString();
+          final sessionUid =
+              (data["userid"] ?? data["userId"] ?? "").toString();
 
           final stage = (data["stage"] ?? "WAITING").toString();
           final message = (data["message"] ?? "").toString();
+          final sessionPlate = _extractPlateFromSession(data);
+          final plate =
+              sessionPlate.isNotEmpty ? sessionPlate : _latestEventPlate;
+          final lastUpdatedAt =
+              _extractSessionTimestamp(data) ?? _latestEventAt;
           final rawProgress = data["progress"] ?? 0;
-          final progress = rawProgress is int
-              ? rawProgress
-              : int.tryParse(rawProgress.toString()) ?? 0;
+          final progress = rawProgress is num
+              ? rawProgress.toDouble()
+              : double.tryParse(rawProgress.toString()) ?? 0;
 
           final p = progress.clamp(0, 100).toDouble();
 
-          // ✅ Requirement: show timeline always when not started / not active / not your account
+          //  Requirement: show timeline always when not started / not active / not your account
           if (!sessionActive || sessionUid != user.uid) {
             return _WaitingTimeline(
               title: "No wash started yet",
@@ -178,17 +351,39 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
             );
           }
 
-          // ✅ DONE state
-          final isDone = stage.toUpperCase() == "DONE" || p >= 100;
+          // DONE state
+          final isDone = _isWashFullyComplete(stage, p);
+          if (!isDone && _doneSweetAlertShown) {
+            _doneSweetAlertShown = false;
+          }
+          if (isDone && !_doneSweetAlertShown) {
+            _doneSweetAlertShown = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              final doneBody = plate.trim().isNotEmpty
+                  ? "Your wash is complete for plate: $plate"
+                  : "Your wash is now complete.";
+              _showSweetAlert(
+                title: _completionTitle("DONE"),
+                body: doneBody,
+                type: "DONE",
+              );
+            });
+          }
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _HeaderCard(stage: stage, message: message),
+                _HeaderCard(
+                  stage: stage,
+                  message: message,
+                  plate: plate,
+                  lastUpdatedAt: lastUpdatedAt,
+                ),
                 const SizedBox(height: 12),
 
-                // ✅ Timeline (always shown for active session too)
+                // Timeline (always shown for active session too)
                 _ProgressTimeline(stage: stage, progress: p),
 
                 const SizedBox(height: 12),
@@ -219,14 +414,18 @@ class _LoadingView extends StatelessWidget {
   }
 }
 
-/// ✅ Nice top info card
+/// Nice top info card
 class _HeaderCard extends StatelessWidget {
   final String stage;
   final String message;
+  final String plate;
+  final DateTime? lastUpdatedAt;
 
   const _HeaderCard({
     required this.stage,
     required this.message,
+    required this.plate,
+    this.lastUpdatedAt,
   });
 
   IconData _stageIcon(String stage) {
@@ -250,7 +449,7 @@ class _HeaderCard extends StatelessWidget {
         child: Row(
           children: [
             CircleAvatar(
-              backgroundColor: cs.primary.withOpacity(0.12),
+              backgroundColor: cs.primary.withValues(alpha: 0.12),
               child: Icon(_stageIcon(stage), color: cs.primary),
             ),
             const SizedBox(width: 12),
@@ -261,7 +460,7 @@ class _HeaderCard extends StatelessWidget {
                   Text(
                     "Current Stage",
                     style: TextStyle(
-                      color: cs.onSurface.withOpacity(0.65),
+                      color: cs.onSurface.withValues(alpha: 0.65),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -273,11 +472,33 @@ class _HeaderCard extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  if (plate.trim().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      "Plate: $plate",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textStrong,
+                      ),
+                    ),
+                  ],
                   if (message.trim().isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
                       message,
-                      style: TextStyle(color: cs.onSurface.withOpacity(0.8)),
+                      style:
+                          TextStyle(color: cs.onSurface.withValues(alpha: 0.8)),
+                    ),
+                  ],
+                  if (lastUpdatedAt != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      "Last update: ${DateFormat('dd MMM yyyy, HH:mm:ss').format(lastUpdatedAt!.toLocal())}",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ],
@@ -290,7 +511,7 @@ class _HeaderCard extends StatelessWidget {
   }
 }
 
-/// ✅ Shows waiting timeline when no wash started (your requirement)
+/// Shows waiting timeline when no wash started (your requirement)
 class _WaitingTimeline extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -337,7 +558,7 @@ class _WaitingTimeline extends StatelessWidget {
   }
 }
 
-/// ✅ Timeline widget (clean and always visible)
+/// Timeline widget (clean and always visible)
 class _ProgressTimeline extends StatelessWidget {
   final String stage;
   final double progress;
@@ -348,13 +569,33 @@ class _ProgressTimeline extends StatelessWidget {
   });
 
   int _currentIndex(String stage, double p) {
-    final s = stage.toUpperCase();
+    final s = stage.trim().toUpperCase();
 
-    if (s.contains("DONE") || p >= 100) return 4;
+    if (_isWashFullyComplete(stage, p) || _isCompletionStage(stage)) return 4;
+
     if (s.contains("POLISH")) return 3;
-    if (s.contains("WASH")) return 2;
-    if (s.contains("VACUUM")) return 1;
-    if (s.contains("ARRIVED")) return 0;
+
+    if (s.contains("WASH")) {
+      // When WASH finishes, move to POLISH.
+      if (s.contains("END")) return 3;
+      return 2;
+    }
+
+    if (s.contains("VACUUM")) {
+      // When VACUUM finishes, move to WASH.
+      if (s.contains("END")) return 2;
+      return 1;
+    }
+
+    // When the car arrives, the next step is VACUUM.
+    if (s.contains("ARRIVED")) return 1;
+    if (s.contains("WAIT") || s.contains("IDLE")) return -1;
+
+    // Fallback for unknown stage labels: infer step, but avoid auto-DONE.
+    if (p >= 75) return 3;
+    if (p >= 50) return 2;
+    if (p >= 25) return 1;
+    if (p > 0) return 0;
 
     // WAITING or UNKNOWN
     return -1;
@@ -364,6 +605,7 @@ class _ProgressTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final idx = _currentIndex(stage, progress);
+    final fullyDone = _isWashFullyComplete(stage, progress);
 
     final steps = <_TimelineStepData>[
       const _TimelineStepData(
@@ -410,8 +652,9 @@ class _ProgressTimeline extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             ...List.generate(steps.length, (i) {
-              final isCompleted = idx >= i && idx != -1;
-              final isActive = idx == i;
+              final isCompleted = (idx > i && idx != -1) ||
+                  (fullyDone && i == steps.length - 1);
+              final isActive = idx == i && idx != -1;
 
               return _TimelineRow(
                 data: steps[i],
@@ -458,9 +701,12 @@ class _TimelineRow extends StatelessWidget {
 
     final Color dotBg = isCompleted
         ? cs.primary
-        : cs.onSurface.withOpacity(0.12);
+        : (isActive
+            ? cs.primary.withValues(alpha: 0.12)
+            : cs.onSurface.withValues(alpha: 0.12));
 
-    final Color iconColor = isCompleted ? cs.onPrimary : cs.onSurface;
+    final Color iconColor =
+        isCompleted ? cs.onPrimary : (isActive ? cs.primary : cs.onSurface);
 
     final TextStyle titleStyle = TextStyle(
       fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
@@ -478,6 +724,9 @@ class _TimelineRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: dotBg,
                 shape: BoxShape.circle,
+                border: isActive && !isCompleted
+                    ? Border.all(color: cs.primary, width: 2)
+                    : null,
               ),
               child: Icon(data.icon, size: 18, color: iconColor),
             ),
@@ -485,7 +734,9 @@ class _TimelineRow extends StatelessWidget {
               Container(
                 width: 2,
                 height: 34,
-                color: cs.onSurface.withOpacity(0.12),
+                color: isCompleted
+                    ? cs.primary.withValues(alpha: 0.35)
+                    : cs.onSurface.withValues(alpha: 0.12),
               ),
           ],
         ),
@@ -501,7 +752,7 @@ class _TimelineRow extends StatelessWidget {
                 Text(
                   data.subtitle,
                   style: TextStyle(
-                    color: cs.onSurface.withOpacity(0.7),
+                    color: cs.onSurface.withValues(alpha: 0.7),
                     fontSize: 12,
                   ),
                 ),
@@ -515,7 +766,7 @@ class _TimelineRow extends StatelessWidget {
   }
 }
 
-/// ✅ Progress card (pretty)
+///  Progress card (pretty)
 class _ProgressCard extends StatelessWidget {
   final double progress;
   final String stage;
@@ -567,7 +818,7 @@ class _ProgressCard extends StatelessWidget {
                 const Spacer(),
                 Text(
                   stage,
-                  style: TextStyle(color: cs.onSurface.withOpacity(0.7)),
+                  style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
                 ),
               ],
             ),
@@ -575,7 +826,7 @@ class _ProgressCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 message,
-                style: TextStyle(color: cs.onSurface.withOpacity(0.8)),
+                style: TextStyle(color: cs.onSurface.withValues(alpha: 0.8)),
               ),
             ],
           ],
@@ -585,7 +836,7 @@ class _ProgressCard extends StatelessWidget {
   }
 }
 
-/// ✅ Done screen card
+/// Done screen card
 class _DoneCard extends StatelessWidget {
   const _DoneCard();
 
@@ -612,7 +863,7 @@ class _DoneCard extends StatelessWidget {
             Text(
               "Your car wash is complete. Thank you for choosing us!",
               textAlign: TextAlign.center,
-              style: TextStyle(color: cs.onSurface.withOpacity(0.8)),
+              style: TextStyle(color: cs.onSurface.withValues(alpha: 0.8)),
             ),
           ],
         ),
@@ -621,16 +872,20 @@ class _DoneCard extends StatelessWidget {
   }
 }
 
-/// ✅ Sweet alert dialog UI
+///  Sweet alert dialog UI
 class _SweetAlertDialog extends StatelessWidget {
   final String title;
   final String message;
   final IconData icon;
+  final String? actionLabel;
+  final VoidCallback? onActionPressed;
 
   const _SweetAlertDialog({
     required this.title,
     required this.message,
     required this.icon,
+    this.actionLabel,
+    this.onActionPressed,
   });
 
   @override
@@ -645,7 +900,7 @@ class _SweetAlertDialog extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: cs.primary.withOpacity(0.12),
+              backgroundColor: cs.primary.withValues(alpha: 0.12),
               child: Icon(icon, color: cs.primary),
             ),
             const SizedBox(width: 12),
@@ -664,8 +919,20 @@ class _SweetAlertDialog extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     message,
-                    style: TextStyle(color: cs.onSurface.withOpacity(0.8)),
+                    style:
+                        TextStyle(color: cs.onSurface.withValues(alpha: 0.8)),
                   ),
+                  if (actionLabel != null && onActionPressed != null) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed: onActionPressed,
+                        icon: const Icon(Icons.home_rounded),
+                        label: Text(actionLabel!),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

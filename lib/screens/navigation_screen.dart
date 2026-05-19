@@ -2,13 +2,14 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'shared/app_ui.dart';
 
 // Screens (adjust paths if needed)
 import 'user_dashboard.dart';
 import 'packages_screen.dart';
 import 'about_us_screen.dart';
 
-/// ✅ REUSABLE APP SHELL (Bottom Navigation Wrapper)
+/// REUSABLE APP SHELL (Bottom Navigation Wrapper)
 class AppShell extends StatefulWidget {
   final int initialIndex;
   final List<Widget> screens;
@@ -46,9 +47,9 @@ class _AppShellState extends State<AppShell> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.white,
+        selectedItemColor: AppColors.brandA,
+        unselectedItemColor: AppColors.textMuted,
+        backgroundColor: AppColors.surface,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_rounded),
@@ -72,7 +73,7 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-/// ✅ NAVIGATION SCREEN (just passes screens into AppShell)
+/// NAVIGATION SCREEN (just passes screens into AppShell)
 class NavigationScreen extends StatelessWidget {
   final int initialIndex;
 
@@ -95,7 +96,7 @@ class NavigationScreen extends StatelessWidget {
   }
 }
 
-/// ✅ PUBLIC Maps tab (was _MapsTab)
+/// PUBLIC Maps tab (was _MapsTab)
 class MapsTab extends StatefulWidget {
   const MapsTab({super.key});
 
@@ -107,10 +108,10 @@ class _MapsTabState extends State<MapsTab> {
   static const String _address = "Etwar Road, Ecroignard, Flacq, Mauritius";
   static const String _label = "Teknik Wash";
 
-  /// ✅ Replace with your real coordinates when you have them
+  ///coordinates of location
   static const LatLng _washLatLng = LatLng(-20.230395, 57.745369);
 
-  /// ✅ Your pinned Google Maps short link (exact location)
+  ///Google Maps short link (exact location)
   static final Uri _pinnedGoogleLink =
       Uri.parse("https://maps.app.goo.gl/Bef1G15qk5ppxEAF9");
 
@@ -148,7 +149,7 @@ class _MapsTabState extends State<MapsTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ✅ no AppBar -> modern map screen
+      // no AppBar -> modern map screen
       body: Stack(
         children: [
           Positioned.fill(
@@ -166,15 +167,14 @@ class _MapsTabState extends State<MapsTab> {
             ),
           ),
 
-          // ✅ Top overlay
+          // Top overlay
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: Card(
                 elevation: 2,
                 child: ListTile(
-                  leading: const Icon(Icons.place_rounded,
-                      color: Colors.blueAccent),
+                  leading: const Icon(Icons.place_rounded, color: AppColors.brandA),
                   title: const Text(
                     _label,
                     style: TextStyle(fontWeight: FontWeight.w800),
@@ -190,7 +190,7 @@ class _MapsTabState extends State<MapsTab> {
             ),
           ),
 
-          // ✅ Bottom CTA
+          //Bottom CTA
           Align(
             alignment: Alignment.bottomCenter,
             child: SafeArea(

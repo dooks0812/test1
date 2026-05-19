@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ✅ Shared theme/widgets
+// ? Shared theme/widgets
 import 'shared/app_ui.dart';
 
 import 'user_dashboard.dart';
 import 'admin_dashboard.dart';
 import 'register_screen.dart';
 
-// ✅ Built-in phone biometrics (Face/Fingerprint)
+// ? Built-in phone biometrics (Face/Fingerprint)
 import 'package:local_auth/local_auth.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,13 +25,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
 
-  // ✅ Show/hide password
+  // ? Show/hide password
   bool _obscurePassword = true;
 
-  // ✅ Forgot password loading
+  // ? Forgot password loading
   bool _isResetting = false;
 
-  // ✅ Phone biometric state (KEEP)
+  // ? Phone biometric state (KEEP)
   final LocalAuthentication _localAuth = LocalAuthentication();
   bool _phoneBioAvailable = false;
   bool _phoneBioUnlocking = false;
@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // ✅ PHONE BUILT-IN BIOMETRICS (FACE/FINGERPRINT)  (KEEP)
+  // PHONE BUILT-IN BIOMETRICS (FACE/FINGERPRINT)  (KEEP)
   // ---------------------------------------------------------------------------
 
   Future<void> _initPhoneBiometricState() async {
@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // ✅ EMAIL/PASSWORD LOGIN (FIRST TIME)
+  // ? EMAIL/PASSWORD LOGIN (FIRST TIME)
   // ---------------------------------------------------------------------------
 
   Future<void> _login() async {
@@ -160,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // ✅ ROLE / ROUTING
+  // ? ROLE / ROUTING
   // ---------------------------------------------------------------------------
 
   Future<String> _ensureProfileAndGetRole({
@@ -203,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // ✅ FORGOT PASSWORD
+  // ? FORGOT PASSWORD
   // ---------------------------------------------------------------------------
 
   Future<void> _forgotPassword() async {
@@ -233,7 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // ✅ UI
+  // ? UI
   // ---------------------------------------------------------------------------
 
   @override
@@ -241,8 +241,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final userHasSession = FirebaseAuth.instance.currentUser != null;
 
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
+          Positioned.fill(
+            child: Image.asset(
+              "assets/images/bg.jpg",
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              color: Colors.white.withValues(alpha: 0.45),
+            ),
+          ),
+          Column(
+            children: [
           const AppGradientHeader(
             title: "Teknik Wash",
             description: "Secure login to manage bookings and wash progress.",
@@ -369,13 +382,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                   width: double.infinity,
                                   child: ElevatedButton(
                                     onPressed: _login,
-                                    child: const Text("Login (First time)"),
+                                    child: const Text("Login"),
                                   ),
                                 ),
 
                           const SizedBox(height: AppSpacing.md),
 
-                          // ✅ KEEP: Phone built-in Face/Fingerprint prompt
+                          // ? KEEP: Phone built-in Face/Fingerprint prompt
                           OutlinedButton.icon(
                             onPressed: _phoneBioUnlocking ? null : _unlockWithPhoneBiometrics,
                             icon: const Icon(Icons.fingerprint),
@@ -420,6 +433,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
+          ),
+          ],
           ),
         ],
       ),
