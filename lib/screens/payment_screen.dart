@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-// Shared UI (top.jpg header + bg.jpg background)
 import 'shared/app_ui.dart';
-
-// ADD THIS IMPORT
 import 'user_dashboard.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -34,7 +30,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   static const int _sixthWashApprovedBefore = 5; // 5 approved before => this is 6th
   static const double _sixthWashDiscountRate = 0.10; // 10%
 
-  double _round2(double v) => double.parse(v.toStringAsFixed(2));
+  double _round2(double v) => double.parse(v.toStringAsFixed(2));//2 dec place
 
   /// Count user's APPROVED payments
   Future<int> _countApprovedPayments(String uid) async {
@@ -44,7 +40,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         .where("status", isEqualTo: "approved")
         .get();
 
-    return snap.size;
+    return snap.size;//return 5 if the user has 5 approved payment
   }
 
   /// Prevent giving the "6th wash" reward more than once (even with race conditions)
@@ -67,6 +63,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   /// 2) users/{uid}/specialOffers/{doc}:
   ///    - active: true
   ///    - rate: 0.10  OR percent: 10
+  
+  /// checks if the user has a special discount offer
   Future<_OfferResult> _fetchSpecialOffer(String uid) async {
     DocumentReference<Map<String, dynamic>>? offerRef;
     double rate = 0.0;
@@ -154,7 +152,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     // Discount wins over 6th wash reward
     final offer = await _fetchSpecialOffer(uid);
 
-    // Sixth wash reward (ONLY when approvedCount == 5, and only once)
+    // Sixth wash reward (ONLY when approvedCount == 5, and only once)No special offer is active AND approved payments count is exactly 5
     bool sixthEligible = false;
     if (!offer.active && approvedCount == _sixthWashApprovedBefore) {
       final used = await _hasUsedSixthWashReward(uid);

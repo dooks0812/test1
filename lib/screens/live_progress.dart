@@ -23,12 +23,12 @@ DateTime? _parseFlexibleDateTime(dynamic value) {
   }
 
   if (value is double) {
-    return _parseFlexibleDateTime(value.toInt());
+    return _parseFlexibleDateTime(value.toInt());//convert to int if dec
   }
 
   if (value is String) {
     final trimmed = value.trim();
-    if (trimmed.isEmpty) return null;
+    if (trimmed.isEmpty) return null;//remove spaces
 
     final parsed = DateTime.tryParse(trimmed);
     if (parsed != null) return parsed.toLocal();
@@ -42,7 +42,7 @@ DateTime? _parseFlexibleDateTime(dynamic value) {
   return null;
 }
 
-bool _isCompletionStage(String stage) {
+bool _isCompletionStage(String stage) {//checks whether a stage name means the wash is completed
   final s = stage.trim().toUpperCase();
   if (s.isEmpty) return false;
 
@@ -68,7 +68,7 @@ class LiveProgressScreen extends StatefulWidget {
 }
 
 class _LiveProgressScreenState extends State<LiveProgressScreen> {
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _eventSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _eventSub;//event listener
   String? _lastEventId;
   String _latestEventPlate = "";
   DateTime? _latestEventAt;
@@ -84,13 +84,14 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+//reads the latest event for the current user
     final q = FirebaseFirestore.instance
         .collection('events')
         .where('uid', isEqualTo: user.uid)
         .orderBy('createdAt', descending: true)
         .limit(1);
 
-    _eventSub = q.snapshots().listen((snap) async {
+    _eventSub = q.snapshots().listen((snap) async {//start real time listener
       if (snap.docs.isEmpty) return;
 
       final doc = snap.docs.first;
@@ -100,7 +101,7 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
       if (_lastEventId == eventId) return;
       _lastEventId = eventId;
 
-      final data = doc.data();
+      final data = doc.data();//read event data
       final type = (data['type'] ?? 'UPDATE').toString();
       final plateKey = (data['plateKey'] ?? '').toString();
       final isCompletion = _isCompletionEvent(type);
@@ -115,7 +116,7 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
       }
       if (plateKey.trim().isNotEmpty) {
         final normalized = plateKey.trim().toUpperCase();
-        if (mounted && normalized != _latestEventPlate) {
+        if (mounted && normalized != _latestEventPlate) {//update the lastest plate
           setState(() => _latestEventPlate = normalized);
         } else {
           _latestEventPlate = normalized;
@@ -147,13 +148,13 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
 
       // 2) Sweet in-app alert (added)
       if (!mounted) return;
-      if (_isCompletionEvent(type) && !_doneSweetAlertShown) {
+      if (_isCompletionEvent(type) && !_doneSweetAlertShown) {//event is DONE AND Done alert has not already been shown
         final sessionSnap = await FirebaseFirestore.instance
             .collection("wash_sessions")
             .doc("1")
             .get();
         final sessionData = sessionSnap.data() ?? <String, dynamic>{};
-        final sessionStage = (sessionData["stage"] ?? "").toString();
+        final sessionStage = (sessionData["stage"] ?? "").toString();//read current stage
         final rawSessionProgress = sessionData["progress"] ?? 0;
         final sessionProgress = rawSessionProgress is num
             ? rawSessionProgress.toDouble()
@@ -241,7 +242,7 @@ class _LiveProgressScreenState extends State<LiveProgressScreen> {
     }
   }
 
-  String _extractPlateFromSession(Map<String, dynamic> data) {
+  String _extractPlateFromSession(Map<String, dynamic> data) {//get the plate number from a Firestore document
     final direct = (data["plateNumber"] ??
             data["plateRaw"] ??
             data["plate"] ??

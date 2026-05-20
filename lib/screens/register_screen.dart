@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-// shared theme/widgets
 import 'shared/app_ui.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -107,7 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: email,
         password: password,
       );
-      final uid = cred.user!.uid;
+      final uid = cred.user!.uid;//user get an id
 
       // 2) Create user profile in Firestore (NO FACE DATA)
       final userDoc = FirebaseFirestore.instance.collection("users").doc(uid);

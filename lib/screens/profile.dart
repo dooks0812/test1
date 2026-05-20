@@ -11,12 +11,12 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  User? get _user => FirebaseAuth.instance.currentUser;
+  User? get _user => FirebaseAuth.instance.currentUser;//get current user data
 
-  String _plateKey(String raw) =>
+  String _plateKey(String raw) =>//display plate
       raw.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
 
-  Future<void> _openCarDialog({
+  Future<void> _openCarDialog({//add/edit car 
     String? carId,
     Map<String, dynamic>? existing,
   }) async {
@@ -76,7 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 return;
               }
 
-              final uid = _user?.uid;
+              final uid = _user?.uid;//get user id
               if (uid == null) return;
 
               final carsCol = FirebaseFirestore.instance
@@ -91,10 +91,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 "updatedAt": FieldValue.serverTimestamp(),
               };
 
-              try {
+              try {//update doc if editted
                 if (isEdit) {
                   await carsCol.doc(carId).update(payload);
-                } else {
+                } else {//create new doc if added
                   await carsCol.add({
                     ...payload,
                     "createdAt": FieldValue.serverTimestamp(),
@@ -114,7 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
+//delete car
   Future<void> _deleteCar(String carId, String nickname) async {
     final uid = _user?.uid;
     if (uid == null) return;

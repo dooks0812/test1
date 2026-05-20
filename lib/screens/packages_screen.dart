@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'booking_screen.dart';
-import 'user_dashboard.dart'; // ✅ ADD: redirect target
-import 'shared/app_ui.dart'; // ✅ use your shared header/theme
+import 'user_dashboard.dart';
+import 'shared/app_ui.dart'; 
 
 class PackagesScreen extends StatelessWidget {
   const PackagesScreen({super.key});
@@ -18,7 +17,7 @@ class PackagesScreen extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          /// ✅ Background image (bg.jpg)
+          /// Background image (bg.jpg)
           Positioned.fill(
             child: Image.asset(
               "assets/images/bg.jpg",
@@ -28,7 +27,7 @@ class PackagesScreen extends StatelessWidget {
             ),
           ),
         
-          /// ✅ Soft overlay for readability
+          ///Soft overlay for readability
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -44,10 +43,10 @@ class PackagesScreen extends StatelessWidget {
             ),
           ),
 
-          /// ✅ Content
+          ///Content
           Column(
             children: [
-              /// ✅ Top image header (top.jpg) + back button
+              ///Top image header (top.jpg) + back button
               AppGradientHeader(
                 title: "Car Wash Packages",
                 subtitle: "Choose a package",
@@ -57,7 +56,7 @@ class PackagesScreen extends StatelessWidget {
                   tooltip: "Back",
                   icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
 
-                  /// ✅ FIXED: always go back to UserDashboard
+                  ///always go back to UserDashboard
                   onPressed: () {
                     Navigator.pushAndRemoveUntil(
                       context,
@@ -71,7 +70,7 @@ class PackagesScreen extends StatelessWidget {
               ),
 
               Expanded(
-                child: StreamBuilder<QuerySnapshot>(
+                child: StreamBuilder<QuerySnapshot>(//listens to the Firestore stream
                   stream: packagesStream,
                   builder: (context, snapshot) {
                     // Loading
@@ -110,7 +109,7 @@ class PackagesScreen extends StatelessWidget {
                           final doc = docs[index];
                           final data = doc.data() as Map<String, dynamic>;
 
-                          // ✅ Safe parsing
+                          //Safe parsing
                           final String name = (data["name"] ?? "").toString();
                           final double price =
                               (data["price"] as num?)?.toDouble() ?? 0.0;

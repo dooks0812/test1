@@ -5,13 +5,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import 'packages_screen.dart';
 import 'about_us_screen.dart';
 import 'login_screen.dart';
 import 'profile.dart';
 import 'shared/app_ui.dart';
 import 'live_progress_select.dart';
+import 'my_bookings_screen.dart';
 
 class UserDashboard extends StatefulWidget {
   const UserDashboard({super.key});
@@ -20,7 +20,7 @@ class UserDashboard extends StatefulWidget {
   State<UserDashboard> createState() => _UserDashboardState();
 }
 
-/// ✅ This is now your MAIN APP SHELL for users (bottom nav on all pages)
+///This is now your MAIN APP SHELL for users (bottom nav on all pages)
 class _UserDashboardState extends State<UserDashboard> {
   int _selectedIndex = 0;
 
@@ -32,7 +32,7 @@ class _UserDashboardState extends State<UserDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ✅ Keep tab states alive
+      // Keep tab states alive
       body: IndexedStack(
         index: _selectedIndex,
         children: [
@@ -43,7 +43,7 @@ class _UserDashboardState extends State<UserDashboard> {
         ],
       ),
 
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: BottomNavigationBar(//bottom menu
         currentIndex: _selectedIndex,
         onTap: _setTab,
         type: BottomNavigationBarType.fixed,
@@ -73,7 +73,7 @@ class _UserDashboardState extends State<UserDashboard> {
   }
 }
 
-/// ✅ Your original dashboard UI, but now as a TAB (no Scaffold)
+///Your original dashboard UI, but now as a TAB (no Scaffold)
 class _DashboardHomeTab extends StatefulWidget {
   final void Function(int index) onTabRequested;
 
@@ -126,7 +126,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           );
 
         final doc = docs.first;
-        final data = doc.data();
+        final data = doc.data();//read notif data
 
         final title = (data["title"] ?? "Notification").toString();
         final message = (data["message"] ?? "").toString();
@@ -158,7 +158,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                     } catch (_) {}
                     if (mounted) Navigator.pop(context);
 
-                    // ✅ Redirect using tabs (NO pushing new pages)
+                    //Redirect using tabs (NO pushing new pages)
                     if (ctaRoute == "packages") {
                       widget.onTabRequested(1); // Packages tab
                     }
@@ -216,7 +216,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        /// ✅ Background image
+        ///Background image
         Positioned.fill(
           child: Image.asset(
             "assets/images/bg.jpg",
@@ -224,14 +224,14 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           ),
         ),
 
-        /// ✅ Soft overlay (readable)
+        ///Soft overlay (readable)
         Positioned.fill(
           child: Container(
             color: Colors.white.withValues(alpha: 0.45),
           ),
         ),
 
-        /// ✅ Content
+        ///Content
         Column(
           children: [
             AppGradientHeader(
@@ -288,6 +288,12 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                       subtitle: "Real-time wash updates",
                       onTap: () =>
                           context.push(const LiveProgressSelectScreen()),
+                    ),
+                    AppActionTile(
+                      icon: Icons.receipt_long_rounded,
+                      title: "My Bookings",
+                      subtitle: "View your booking history",
+                      onTap: () => context.push(const MyBookingsScreen()),
                     ),
                     AppActionTile(
                       icon: Icons.info_outline_rounded,

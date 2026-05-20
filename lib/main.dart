@@ -1,26 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'screens/shared/app_ui.dart';
 import 'screens/login_screen.dart';
 import 'screens/user_dashboard.dart';
 import 'screens/admin_dashboard.dart';
-
 import 'package:car_wash_app/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ Initialize Firebase
+  //Initialize Firebase
   await Firebase.initializeApp();
   await LocalNotifs.init();
 
 
-  // ✅ setPersistence is WEB-ONLY. Android/iOS persist automatically.
+  // setPersistence is WEB-ONLY. Android/iOS persist automatically.
   if (kIsWeb) {
     await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
   }
@@ -42,25 +39,25 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// ✅ AuthGate decides what to show based on login session
+///AuthGate decides what to show based on login session
 /// - Not logged in -> LoginScreen
 /// - Logged in -> AdminDashboard (if admin@gmail.com) else UserDashboard
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
-  /// ✅ Admin rule (simple and reliable for now)
+  /// Admin rule (simple and reliable for now)
   bool _isAdmin(User user) {
     return (user.email ?? "").toLowerCase() == "admin@gmail.com";
   }
 
   /// Ensure Firestore user profile exists (prevents role lookup / null doc problems)
   Future<void> _ensureUserProfile(User user) async {
-    final userDoc = FirebaseFirestore.instance.collection("users").doc(user.uid);
+    final userDoc = FirebaseFirestore.instance.collection("users").doc(user.uid);//get doc
 
-    final snap = await userDoc.get();
+    final snap = await userDoc.get();//read doc
     if (snap.exists) return;
 
-    // ✅ Create a minimal profile document
+    // Create a minimal profile document
     await userDoc.set({
       "name": user.displayName ?? "",
       "email": user.email ?? "",
@@ -72,7 +69,7 @@ class AuthGate extends StatelessWidget {
 
   /// Get role from Firestore (fallback to admin email or "user")
   Future<String> _getRole(User user) async {
-    // ✅ Email-based admin always wins
+    // Email-based admin always wins
     if (_isAdmin(user)) return "admin";
 
     final doc =
@@ -87,7 +84,7 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      // ✅ Firebase keeps session automatically on Android/iOS
+      // Firebase keeps session automatically on Android/iOS
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snap) {
         // Loading state

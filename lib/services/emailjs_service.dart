@@ -24,7 +24,7 @@ class EmailJsService {
       "service_id": serviceId,
       "template_id": templateId,
 
-      // ✅ keep user_id as EmailJS expects
+      // keep user_id as EmailJS expects
       "user_id": publicKey,
 
       "template_params": {
